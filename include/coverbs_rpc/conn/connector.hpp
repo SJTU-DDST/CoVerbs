@@ -1,0 +1,52 @@
+#pragma once
+
+#include <cppcoro/net/socket.hpp>
+#include <cppcoro/task.hpp>
+#include <cstdint>
+#include <list>
+#include <memory>
+
+#include <rdmapp/cq.h>
+#include <rdmapp/cq_poller.h>
+#include <rdmapp/pd.h>
+#include <rdmapp/qp.h>
+
+#include "coverbs_rpc/conn/transmission.hpp"
+
+namespace cppcoro {
+class io_service;
+}
+
+namespace coverbs_rpc {
+struct qp_connector {
+  using pd = rdmapp::pd;
+  using cq = rdmapp::cq;
+  using srq = rdmapp::srq;
+  using qp_t = rdmapp::basic_qp;
+  using cq_poller_t = rdmapp::native_cq_poller;
+
+  qp_connector(cppcoro::io_service &io_service, std::shared_ptr<pd> pd,
+               std::shared_ptr<srq> srq = nullptr);
+
+  auto connect(std::string_view hostname, uint16_t port,
+               std::span<const std::byte> userdata = {})
+      -> cppcoro::task<std::shared_ptr<qp_t>>;
+
+  auto connect(std::string_view hostname, uint16_t port,
+               qp_handshake const &handshake)
+      -> cppcoro::task<std::vector<std::shared_ptr<qp_t>>>;
+
+private:
+  auto from_socket(cppcoro::net::socket &socket,
+                   std::span<std::byte const> userdata)
+      -> cppcoro::task<std::shared_ptr<qp_t>>;
+
+  auto alloc_cq() noexcept -> std::shared_ptr<cq>;
+
+  std::shared_ptr<pd> pd_;
+  std::shared_ptr<srq> srq_;
+  std::list<cq_poller_t> pollers_;
+  cppcoro::io_service &io_service_;
+};
+
+} // namespace coverbs_rpc

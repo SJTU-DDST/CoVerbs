@@ -1,4 +1,4 @@
-add_rules("mode.debug", "mode.release")
+add_rules("mode.debug", "mode.check", "mode.release")
 
 package("rdmapp")
     set_description("The rdmapp package")
@@ -30,7 +30,15 @@ add_requires("rdmapp dev")
 add_requires("cppcoro main")
 add_requires("spdlog 1.16.0", {private=true, configs={header_only=true}})
 
+add_includedirs("include")
+
+
 target("coverbs-rpc")
+    set_kind("static")
+    add_packages("rdmapp", "cppcoro", "spdlog" , {public=true})
+    add_files("src/conn/*.cc")
+
+target("naive_test")
     set_kind("binary")
-    add_packages("rdmapp", "cppcoro", "spdlog")
-    add_files("src/*.cpp")
+    add_files("src/tests/naive.cc")
+    add_deps("coverbs-rpc")

@@ -1,8 +1,8 @@
+#include <coverbs_rpc/logger.hpp>
 #include <cppcoro/task.hpp>
 #include <rdmapp/qp.h>
-#include <spdlog/spdlog.h>
 
 int main(int argc [[maybe_unused]], char **argv [[maybe_unused]]) {
-  spdlog::info("hello world!");
+  coverbs_rpc::get_logger()->info("hello world!");
   return 0;
 }
