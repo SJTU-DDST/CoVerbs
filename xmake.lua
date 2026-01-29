@@ -26,13 +26,14 @@ package("cppcoro")
     end)
 package_end()
 
-set_languages("c++20", { public = true })
+set_languages("c++23", { public = true })
 set_warnings("all", "extra", "pedantic", "error", {private=true})
 
 add_requires("rdmapp dev")
 add_requires("cppcoro main")
 add_requires("concurrentqueue 1.0.4", {private=true})
 add_requires("spdlog 1.16.0", {private=true, configs={header_only=true}})
+add_requires("glaze 7.0.0", {public=true})
 
 add_includedirs("include")
 
@@ -43,6 +44,7 @@ target("coverbs-rpc")
     add_packages("cppcoro", {public=true})
     add_packages("spdlog", {public=true})
     add_packages("concurrentqueue", {private=true})
+    add_packages("glaze", {public=true})
     add_files("src/conn/*.cc")
     add_files("src/*.cc")
 
@@ -75,4 +77,8 @@ target("basic_rpc_mux_test_server")
 
 target("basic_rpc_mux_test_client")
     add_files("tests/basic_rpc_mux_test_client.cc")
+    add_rules("test_config")
+
+target("typed_rpc_test")
+    add_files("tests/typed_rpc_test.cc")
     add_rules("test_config")

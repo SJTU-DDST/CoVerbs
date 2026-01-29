@@ -7,12 +7,12 @@
 namespace coverbs_rpc {
 
 struct ConnConfig {
-  uint32_t cq_size = 512;
+  uint32_t cq_size = 256;
   rdmapp::qp_config qp_config = rdmapp::default_qp_config();
 };
 
 struct RpcConfig {
-  std::size_t max_inflight = 512;
+  std::size_t max_inflight = 128;
   std::size_t max_req_payload = 256;
   std::size_t max_resp_payload = 4096;
 };
