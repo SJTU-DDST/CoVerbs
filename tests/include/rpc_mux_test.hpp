@@ -6,9 +6,9 @@
 
 namespace coverbs_rpc::test {
 constexpr std::size_t kNumHandlers = 20;
-constexpr std::size_t kNumCallsPerHandler = 1000;
+constexpr std::size_t kNumCallsPerHandler = 40000;
 constexpr std::size_t kRequestSize = 128;
-constexpr std::size_t kResponseSize = 128;
+constexpr std::size_t kResponseSize = 4096;
 
 inline auto get_request_byte(uint32_t fn_id) -> std::byte {
   return static_cast<std::byte>(0x10 + fn_id);

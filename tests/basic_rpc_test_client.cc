@@ -6,13 +6,14 @@
 #include <cppcoro/io_service.hpp>
 #include <cppcoro/sync_wait.hpp>
 #include <cppcoro/task.hpp>
+#include <cppcoro/when_all.hpp>
 #include <memory>
 #include <rdmapp/rdmapp.h>
 #include <string>
 #include <thread>
 #include <vector>
 
-#include "include/basic_rpc_test.hpp"
+#include "basic_rpc_test.hpp"
 
 using namespace coverbs_rpc;
 using namespace coverbs_rpc::test;
@@ -20,7 +21,34 @@ using namespace coverbs_rpc::test;
 namespace {
 std::string server_ip = "192.168.98.70"; // default
 uint16_t server_port = 9988;             // default
+constexpr int kCallCnt = 100000;
+constexpr int kReportInterval = 10000;
 } // namespace
+
+cppcoro::task<void> run_rpc_test(Client &client, int num_calls) {
+  std::vector<std::byte> req_data(kRequestSize, kRequestByte);
+  std::vector<std::byte> resp_data(kResponseSize);
+
+  for (int i = 0; i < num_calls; ++i) {
+    auto resp_len = co_await client.call(kTestFnId, req_data, resp_data);
+
+    if (resp_len != kResponseSize) {
+      get_logger()->error("Response length mismatch: expected {}, got {}", kResponseSize, resp_len);
+      exit(1);
+    }
+
+    for (auto b : resp_data) {
+      if (b != kResponseByte) {
+        get_logger()->error("Response data mismatch");
+        exit(1);
+      }
+    }
+    if ((i + 1) % kReportInterval == 0) {
+      get_logger()->info("Completed {}/{} RPC calls", i + 1, num_calls);
+    }
+  }
+  co_return;
+}
 
 cppcoro::task<void> run_test(cppcoro::io_service &io_service, std::shared_ptr<rdmapp::pd> pd) {
   qp_connector connector(io_service, pd, nullptr,
@@ -30,32 +58,22 @@ cppcoro::task<void> run_test(cppcoro::io_service &io_service, std::shared_ptr<rd
   auto qp = co_await connector.connect(server_ip, server_port);
   Client client(qp, kClientRpcConfig);
 
-  std::vector<std::byte> req_data(kRequestSize, kRequestByte);
-  std::vector<std::byte> resp_data(kResponseSize);
-
   const int kNumCalls = 1000;
-  get_logger()->info("Calling RPC {} times...", kNumCalls);
-  for (int i = 0; i < kNumCalls; ++i) {
-    auto resp_len = co_await client.call(kTestFnId, req_data, resp_data);
+  get_logger()->info("Step 1: Sequential test, calling RPC {} times...", kNumCalls);
+  co_await run_rpc_test(client, kNumCalls);
+  get_logger()->info("Step 1: All {} RPC calls successful", kNumCalls);
 
-    if (resp_len != kResponseSize) {
-      get_logger()->error("Response length mismatch at call {}: expected {}, got {}", i,
-                          kResponseSize, resp_len);
-      exit(1);
-    }
-
-    for (auto b : resp_data) {
-      if (b != kResponseByte) {
-        get_logger()->error("Response data mismatch at call {}", i);
-        exit(1);
-      }
-    }
-    if ((i + 1) % 100 == 0) {
-      get_logger()->info("Completed {}/{} RPC calls", i + 1, kNumCalls);
-    }
+  const int kNumConcurrentTasks = 4;
+  const int kCallsPerTask = kCallCnt;
+  get_logger()->info("Step 2: Concurrent test, calling RPC {} times with {} tasks...",
+                     kNumConcurrentTasks * kCallsPerTask, kNumConcurrentTasks);
+  std::vector<cppcoro::task<void>> tasks;
+  for (int i = 0; i < kNumConcurrentTasks; ++i) {
+    tasks.push_back(run_rpc_test(client, kCallsPerTask));
   }
+  co_await cppcoro::when_all(std::move(tasks));
+  get_logger()->info("Step 2: All concurrent RPC calls successful");
 
-  get_logger()->info("All {} RPC calls successful", kNumCalls);
   co_return;
 }
 

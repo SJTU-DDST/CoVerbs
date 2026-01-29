@@ -12,7 +12,7 @@
 #include <rdmapp/rdmapp.h>
 #include <thread>
 
-#include "include/rpc_mux_test.hpp"
+#include "rpc_mux_test.hpp"
 
 using namespace coverbs_rpc;
 using namespace coverbs_rpc::test;

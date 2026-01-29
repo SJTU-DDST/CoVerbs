@@ -12,7 +12,7 @@
 #include <rdmapp/rdmapp.h>
 #include <thread>
 
-#include "include/basic_rpc_test.hpp"
+#include "basic_rpc_test.hpp"
 
 using namespace coverbs_rpc;
 using namespace coverbs_rpc::test;
