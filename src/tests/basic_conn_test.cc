@@ -3,6 +3,7 @@
 #include "coverbs_rpc/logger.hpp"
 #include <algorithm>
 #include <cassert>
+#include <cppcoro/async_scope.hpp>
 #include <cstddef>
 #include <cstdint>
 #include <memory>
@@ -32,10 +33,12 @@ cppcoro::task<void> handle_qp(std::shared_ptr<rdmapp::qp> qp) {
 }
 
 cppcoro::task<void> server(coverbs_rpc::qp_acceptor &acceptor) {
+  cppcoro::async_scope scope;
   while (true) {
     auto qp = co_await acceptor.accept();
-    co_await handle_qp(qp);
+    scope.spawn(handle_qp(qp));
   }
+  co_return;
 }
 
 cppcoro::task<void> client(coverbs_rpc::qp_connector &connector,

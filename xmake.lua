@@ -31,6 +31,7 @@ set_warnings("all", "extra", "pedantic", "error", {private=true})
 
 add_requires("rdmapp dev")
 add_requires("cppcoro main")
+add_requires("concurrentqueue 1.0.4", {private=true})
 add_requires("spdlog 1.16.0", {private=true, configs={header_only=true}})
 
 add_includedirs("include")
@@ -41,7 +42,9 @@ target("coverbs-rpc")
     add_packages("rdmapp",  {public=true})
     add_packages("cppcoro", {public=true})
     add_packages("spdlog", {public=true})
+    add_packages("concurrentqueue", {private=true})
     add_files("src/conn/*.cc")
+    add_files("src/*.cc")
 
 target("naive_test")
     set_kind("binary")
