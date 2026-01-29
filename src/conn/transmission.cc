@@ -1,4 +1,5 @@
 #include "coverbs_rpc/conn/transmission.hpp"
+#include "coverbs_rpc/logger.hpp"
 
 #include <array>
 #include <cassert>
@@ -6,18 +7,16 @@
 #include <cppcoro/task.hpp>
 #include <span>
 
-#include "coverbs_rpc/logger.hpp"
-
 namespace coverbs_rpc {
 
 namespace {
 
-auto write_exactly(cppcoro::net::socket &socket,
-                   std::span<const std::byte> buffer) -> cppcoro::task<void> {
+auto write_exactly(cppcoro::net::socket &socket, std::span<const std::byte> buffer)
+    -> cppcoro::task<void> {
   std::size_t bytes_written = 0;
   while (bytes_written < buffer.size()) {
-    bytes_written += co_await socket.send(buffer.data() + bytes_written,
-                                          buffer.size() - bytes_written);
+    bytes_written +=
+        co_await socket.send(buffer.data() + bytes_written, buffer.size() - bytes_written);
   }
 }
 
@@ -25,8 +24,7 @@ auto read_exactly(cppcoro::net::socket &socket, std::span<std::byte> buffer)
     -> cppcoro::task<void> {
   std::size_t bytes_read = 0;
   while (bytes_read < buffer.size()) {
-    auto n = co_await socket.recv(buffer.data() + bytes_read,
-                                  buffer.size() - bytes_read);
+    auto n = co_await socket.recv(buffer.data() + bytes_read, buffer.size() - bytes_read);
     if (n == 0) {
       throw std::runtime_error("socket closed");
     }
@@ -41,43 +39,34 @@ auto send_handshake(qp_handshake const &handshake, cppcoro::net::socket &socket)
   co_await write_exactly(socket, std::as_bytes(std::span{&handshake, 1}));
 }
 
-auto recv_handshake(cppcoro::net::socket &socket)
-    -> cppcoro::task<qp_handshake> {
+auto recv_handshake(cppcoro::net::socket &socket) -> cppcoro::task<qp_handshake> {
   qp_handshake handshake;
-  co_await read_exactly(socket,
-                        std::as_writable_bytes(std::span{&handshake, 1}));
+  co_await read_exactly(socket, std::as_writable_bytes(std::span{&handshake, 1}));
   co_return handshake;
 }
 
-auto send_qp(rdmapp::qp const &qp, cppcoro::net::socket &socket)
-    -> cppcoro::task<void> {
+auto send_qp(rdmapp::qp const &qp, cppcoro::net::socket &socket) -> cppcoro::task<void> {
   auto local_qp_data = qp.serialize();
   assert(!local_qp_data.empty());
   co_await write_exactly(socket, std::as_bytes(std::span{local_qp_data}));
   get_logger()->debug("send qp: bytes={}", local_qp_data.size());
 }
 
-auto recv_qp(cppcoro::net::socket &socket)
-    -> cppcoro::task<rdmapp::deserialized_qp> {
-  std::array<std::byte, rdmapp::deserialized_qp::qp_header::kSerializedSize>
-      header_buffer;
+auto recv_qp(cppcoro::net::socket &socket) -> cppcoro::task<rdmapp::deserialized_qp> {
+  std::array<std::byte, rdmapp::deserialized_qp::qp_header::kSerializedSize> header_buffer;
   co_await read_exactly(socket, header_buffer);
 
   auto remote_qp = rdmapp::deserialized_qp::deserialize(header_buffer.data());
-  auto const remote_gid_str =
-      rdmapp::device::gid_hex_string(remote_qp.header.gid);
-  get_logger()->debug(
-      "received header gid={} lid={} qpn={} psn={} user_data_size={}",
-      remote_gid_str.c_str(), remote_qp.header.lid, remote_qp.header.qp_num,
-      remote_qp.header.sq_psn, remote_qp.header.user_data_size);
+  auto const remote_gid_str = rdmapp::device::gid_hex_string(remote_qp.header.gid);
+  get_logger()->debug("received header gid={} lid={} qpn={} psn={} user_data_size={}",
+                      remote_gid_str.c_str(), remote_qp.header.lid, remote_qp.header.qp_num,
+                      remote_qp.header.sq_psn, remote_qp.header.user_data_size);
 
   remote_qp.user_data.resize(remote_qp.header.user_data_size);
   if (remote_qp.header.user_data_size > 0) {
-    co_await read_exactly(
-        socket, std::as_writable_bytes(std::span{remote_qp.user_data}));
+    co_await read_exactly(socket, std::as_writable_bytes(std::span{remote_qp.user_data}));
   }
-  get_logger()->debug("received user data: bytes={}",
-                      remote_qp.header.user_data_size);
+  get_logger()->debug("received user data: bytes={}", remote_qp.header.user_data_size);
   co_return remote_qp;
 }
 

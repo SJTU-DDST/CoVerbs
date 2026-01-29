@@ -9,31 +9,30 @@
 
 namespace coverbs_rpc {
 
-qp_connector::qp_connector(cppcoro::io_service &io_service,
-                           std::shared_ptr<pd> pd, std::shared_ptr<srq> srq,
-                           ConnConfig config)
-    : pd_(pd), srq_(srq), io_service_(io_service), config_(std::move(config)) {}
+qp_connector::qp_connector(cppcoro::io_service &io_service, std::shared_ptr<pd> pd,
+                           std::shared_ptr<srq> srq, ConnConfig config)
+    : pd_(pd)
+    , srq_(srq)
+    , io_service_(io_service)
+    , config_(std::move(config)) {}
 
 auto qp_connector::alloc_cq() noexcept -> std::shared_ptr<cq> {
-  auto cq =
-      std::make_shared<rdmapp::cq>(this->pd_->device_ptr(), config_.cq_size);
+  auto cq = std::make_shared<rdmapp::cq>(this->pd_->device_ptr(), config_.cq_size);
   pollers_.emplace_back(cq);
   return cq;
 }
 
-auto qp_connector::from_socket(cppcoro::net::socket &socket,
-                               std::span<std::byte const> userdata)
+auto qp_connector::from_socket(cppcoro::net::socket &socket, std::span<std::byte const> userdata)
     -> cppcoro::task<std::shared_ptr<qp_t>> {
   auto cq = alloc_cq();
-  auto qp_ptr =
-      std::make_shared<qp_t>(this->pd_, cq, cq, srq_, config_.qp_config);
+  auto qp_ptr = std::make_shared<qp_t>(this->pd_, cq, cq, srq_, config_.qp_config);
   qp_ptr->user_data().assign(userdata.begin(), userdata.end());
   co_await send_qp(*qp_ptr, socket);
 
   auto remote_qp = co_await recv_qp(socket);
 
-  qp_ptr->rtr(remote_qp.header.lid, remote_qp.header.qp_num,
-              remote_qp.header.sq_psn, remote_qp.header.gid);
+  qp_ptr->rtr(remote_qp.header.lid, remote_qp.header.qp_num, remote_qp.header.sq_psn,
+              remote_qp.header.gid);
   get_logger()->trace("qp: rtr");
   qp_ptr->user_data() = std::move(remote_qp.user_data);
   get_logger()->trace("qp: user_data: size={}", qp_ptr->user_data().size());
@@ -59,8 +58,7 @@ auto qp_connector::connect(std::string_view hostname, uint16_t port,
   co_return qp;
 }
 
-auto qp_connector::connect(std::string_view hostname, uint16_t port,
-                           qp_handshake const &handshake)
+auto qp_connector::connect(std::string_view hostname, uint16_t port, qp_handshake const &handshake)
     -> cppcoro::task<std::vector<std::shared_ptr<qp_t>>> {
   auto addr = cppcoro::net::ipv4_address::from_string(hostname);
   if (!addr) {
@@ -80,8 +78,7 @@ auto qp_connector::connect(std::string_view hostname, uint16_t port,
   for (unsigned int i = 0; i < handshake.nr_qp; i++) {
     result.emplace_back(co_await from_socket(socket, {}));
   }
-  get_logger()->info("connector: connect with nr_qp={} sid={}", handshake.nr_qp,
-                     handshake.sid);
+  get_logger()->info("connector: connect with nr_qp={} sid={}", handshake.nr_qp, handshake.sid);
   co_return result;
 }
 

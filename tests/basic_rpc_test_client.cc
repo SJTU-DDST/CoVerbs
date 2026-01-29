@@ -2,6 +2,7 @@
 #include "coverbs_rpc/common.hpp"
 #include "coverbs_rpc/conn/connector.hpp"
 #include "coverbs_rpc/logger.hpp"
+
 #include <cppcoro/io_service.hpp>
 #include <cppcoro/sync_wait.hpp>
 #include <cppcoro/task.hpp>
@@ -21,13 +22,11 @@ std::string server_ip = "192.168.98.70"; // default
 uint16_t server_port = 9988;             // default
 } // namespace
 
-cppcoro::task<void> run_test(cppcoro::io_service &io_service,
-                             std::shared_ptr<rdmapp::pd> pd) {
-  qp_connector connector(
-      io_service, pd, nullptr,
-      ConnConfig{.cq_size = kClientMaxInFlight * 2,
-                 .qp_config{.max_send_wr = kClientMaxInFlight * 2,
-                            .max_recv_wr = kClientMaxInFlight * 2}});
+cppcoro::task<void> run_test(cppcoro::io_service &io_service, std::shared_ptr<rdmapp::pd> pd) {
+  qp_connector connector(io_service, pd, nullptr,
+                         ConnConfig{.cq_size = kClientMaxInFlight * 2,
+                                    .qp_config{.max_send_wr = kClientMaxInFlight * 2,
+                                               .max_recv_wr = kClientMaxInFlight * 2}});
   auto qp = co_await connector.connect(server_ip, server_port);
   Client client(qp, kClientRpcConfig);
 
@@ -40,9 +39,8 @@ cppcoro::task<void> run_test(cppcoro::io_service &io_service,
     auto resp_len = co_await client.call(kTestFnId, req_data, resp_data);
 
     if (resp_len != kResponseSize) {
-      get_logger()->error(
-          "Response length mismatch at call {}: expected {}, got {}", i,
-          kResponseSize, resp_len);
+      get_logger()->error("Response length mismatch at call {}: expected {}, got {}", i,
+                          kResponseSize, resp_len);
       exit(1);
     }
 

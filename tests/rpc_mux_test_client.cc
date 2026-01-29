@@ -2,6 +2,7 @@
 #include "coverbs_rpc/common.hpp"
 #include "coverbs_rpc/conn/connector.hpp"
 #include "coverbs_rpc/logger.hpp"
+
 #include <cppcoro/io_service.hpp>
 #include <cppcoro/sync_wait.hpp>
 #include <cppcoro/task.hpp>
@@ -22,27 +23,23 @@ std::string server_ip = "192.168.98.70"; // default
 uint16_t server_port = 9988;             // default
 } // namespace
 
-cppcoro::task<void> run_test(cppcoro::io_service &io_service,
-                             std::shared_ptr<rdmapp::pd> pd) {
-  qp_connector connector(
-      io_service, pd, nullptr,
-      ConnConfig{.cq_size = kClientMaxInFlight * 2,
-                 .qp_config{.max_send_wr = kClientMaxInFlight * 2,
-                            .max_recv_wr = kClientMaxInFlight * 2}});
+cppcoro::task<void> run_test(cppcoro::io_service &io_service, std::shared_ptr<rdmapp::pd> pd) {
+  qp_connector connector(io_service, pd, nullptr,
+                         ConnConfig{.cq_size = kClientMaxInFlight * 2,
+                                    .qp_config{.max_send_wr = kClientMaxInFlight * 2,
+                                               .max_recv_wr = kClientMaxInFlight * 2}});
   auto qp = co_await connector.connect(server_ip, server_port);
   Client client(qp, kClientRpcConfig);
 
-  get_logger()->info(
-      "Starting RPC multiplexing test: {} handlers, {} calls each",
-      kNumHandlers, kNumCallsPerHandler);
+  get_logger()->info("Starting RPC multiplexing test: {} handlers, {} calls each", kNumHandlers,
+                     kNumCallsPerHandler);
 
   for (uint32_t i = 0; i < kNumHandlers; ++i) {
     std::vector<std::byte> req_data(kRequestSize, get_request_byte(i));
     std::vector<std::byte> resp_data(kResponseSize);
     auto expected_resp_byte = get_response_byte(i);
 
-    get_logger()->info("Calling RPC handler {} {} times...", i,
-                       kNumCallsPerHandler);
+    get_logger()->info("Calling RPC handler {} {} times...", i, kNumCallsPerHandler);
     for (std::size_t j = 0; j < kNumCallsPerHandler; ++j) {
       auto resp_len = co_await client.call(i, req_data, resp_data);
 
@@ -55,8 +52,7 @@ cppcoro::task<void> run_test(cppcoro::io_service &io_service,
 
       for (auto b : resp_data) {
         if (b != expected_resp_byte) {
-          get_logger()->error("Response data mismatch at handler {}, call {}",
-                              i, j);
+          get_logger()->error("Response data mismatch at handler {}, call {}", i, j);
           std::terminate();
         }
       }

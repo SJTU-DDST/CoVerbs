@@ -2,6 +2,7 @@
 #include "coverbs_rpc/conn/acceptor.hpp"
 #include "coverbs_rpc/logger.hpp"
 #include "coverbs_rpc/server.hpp"
+
 #include <algorithm>
 #include <cppcoro/async_scope.hpp>
 #include <cppcoro/io_service.hpp>
@@ -19,11 +20,9 @@ using namespace coverbs_rpc::test;
 auto handle_rpc(std::shared_ptr<rdmapp::qp> qp) -> cppcoro::task<void> {
   Server server(qp, kServerRpcConfig);
   server.register_handler(
-      kTestFnId,
-      [](std::span<std::byte> req, std::span<std::byte> resp) -> std::size_t {
+      kTestFnId, [](std::span<std::byte> req, std::span<std::byte> resp) -> std::size_t {
         if (req.size() != kRequestSize) {
-          get_logger()->error("Server: unexpected request size: {}",
-                              req.size());
+          get_logger()->error("Server: unexpected request size: {}", req.size());
           return 0;
         }
         for (auto b : req) {
@@ -34,8 +33,7 @@ auto handle_rpc(std::shared_ptr<rdmapp::qp> qp) -> cppcoro::task<void> {
         }
 
         if (resp.size() < kResponseSize) {
-          get_logger()->error("Server: response buffer too small: {}",
-                              resp.size());
+          get_logger()->error("Server: response buffer too small: {}", resp.size());
           return 0;
         }
         std::fill_n(resp.data(), kResponseSize, kResponseByte);
@@ -67,8 +65,7 @@ auto main(int argc, char *argv[]) -> int {
 
   qp_acceptor acceptor(
       io_service, std::stoi(argv[1]), pd, nullptr,
-      ConnConfig{.qp_config{.max_send_wr = kServerMaxInFlight,
-                            .max_recv_wr = kServerMaxInFlight}});
+      ConnConfig{.qp_config{.max_send_wr = kServerMaxInFlight, .max_recv_wr = kServerMaxInFlight}});
   get_logger()->info("Server: listening on port {}", argv[1]);
   cppcoro::sync_wait(server_loop(acceptor));
 

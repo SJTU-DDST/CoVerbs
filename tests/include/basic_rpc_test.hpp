@@ -1,5 +1,6 @@
 #pragma once
 #include "coverbs_rpc/common.hpp"
+
 #include <cstddef>
 #include <cstdint>
 

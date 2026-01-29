@@ -2,6 +2,7 @@
 #include "coverbs_rpc/conn/acceptor.hpp"
 #include "coverbs_rpc/logger.hpp"
 #include "coverbs_rpc/server.hpp"
+
 #include <algorithm>
 #include <cppcoro/async_scope.hpp>
 #include <cppcoro/io_service.hpp>
@@ -20,28 +21,22 @@ auto handle_rpc(std::shared_ptr<rdmapp::qp> qp) -> cppcoro::task<void> {
   Server server(qp, kServerRpcConfig);
   for (std::size_t i = 0; i < kNumHandlers; ++i) {
     server.register_handler(
-        i,
-        [i](std::span<std::byte> req,
-            std::span<std::byte> resp) -> std::size_t {
+        i, [i](std::span<std::byte> req, std::span<std::byte> resp) -> std::size_t {
           if (req.size() != kRequestSize) {
-            get_logger()->error(
-                "Server: unexpected request size: {} for fn_id {}", req.size(),
-                i);
+            get_logger()->error("Server: unexpected request size: {} for fn_id {}", req.size(), i);
             return 0;
           }
           auto expected_byte = get_request_byte(i);
           for (auto b : req) {
             if (b != expected_byte) {
-              get_logger()->error(
-                  "Server: unexpected request data for fn_id {}", i);
+              get_logger()->error("Server: unexpected request data for fn_id {}", i);
               return 0;
             }
           }
 
           if (resp.size() < kResponseSize) {
-            get_logger()->error(
-                "Server: response buffer too small: {} for fn_id {}",
-                resp.size(), i);
+            get_logger()->error("Server: response buffer too small: {} for fn_id {}", resp.size(),
+                                i);
             return 0;
           }
           std::fill_n(resp.data(), kResponseSize, get_response_byte(i));
@@ -74,8 +69,7 @@ auto main(int argc, char *argv[]) -> int {
 
   qp_acceptor acceptor(
       io_service, std::stoi(argv[1]), pd, nullptr,
-      ConnConfig{.qp_config{.max_send_wr = kServerMaxInFlight,
-                            .max_recv_wr = kServerMaxInFlight}});
+      ConnConfig{.qp_config{.max_send_wr = kServerMaxInFlight, .max_recv_wr = kServerMaxInFlight}});
   get_logger()->info("Server: listening on port {}", argv[1]);
   cppcoro::sync_wait(server_loop(acceptor));
 

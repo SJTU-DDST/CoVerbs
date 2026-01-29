@@ -1,20 +1,18 @@
 #pragma once
 
+#include "coverbs_rpc/common.hpp"
+#include "coverbs_rpc/conn/transmission.hpp"
+
 #include <cppcoro/net/socket.hpp>
 #include <cppcoro/task.hpp>
 #include <cstdint>
-
 #include <list>
 #include <memory>
+#include <rdmapp/cq.h>
+#include <rdmapp/cq_poller.h>
 #include <rdmapp/device.h>
 #include <rdmapp/pd.h>
 #include <rdmapp/qp.h>
-
-#include <rdmapp/cq.h>
-#include <rdmapp/cq_poller.h>
-
-#include "coverbs_rpc/common.hpp"
-#include "coverbs_rpc/conn/transmission.hpp"
 
 namespace cppcoro {
 class io_service;
@@ -29,9 +27,8 @@ struct qp_acceptor {
   using qp_t = rdmapp::basic_qp;
   using cq_poller_t = rdmapp::native_cq_poller;
 
-  qp_acceptor(cppcoro::io_service &io_service, uint16_t port,
-              std::shared_ptr<pd> pd, std::shared_ptr<srq> srq = nullptr,
-              ConnConfig config = {});
+  qp_acceptor(cppcoro::io_service &io_service, uint16_t port, std::shared_ptr<pd> pd,
+              std::shared_ptr<srq> srq = nullptr, ConnConfig config = {});
 
   auto accept() -> cppcoro::task<std::shared_ptr<qp_t>>;
 
@@ -43,10 +40,8 @@ struct qp_acceptor {
   ~qp_acceptor() = default;
 
 private:
-  auto accept_qp(cppcoro::net::socket &socket,
-                 std::shared_ptr<rdmapp::cq> send_cq,
-                 std::shared_ptr<rdmapp::cq> recv_cq)
-      -> cppcoro::task<std::shared_ptr<qp_t>>;
+  auto accept_qp(cppcoro::net::socket &socket, std::shared_ptr<rdmapp::cq> send_cq,
+                 std::shared_ptr<rdmapp::cq> recv_cq) -> cppcoro::task<std::shared_ptr<qp_t>>;
 
   auto alloc_cq() -> std::shared_ptr<rdmapp::cq>;
 

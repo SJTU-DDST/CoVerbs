@@ -31,25 +31,23 @@ struct RpcResponseAwaitable {
 
 struct Client::Impl {
   Impl(std::shared_ptr<rdmapp::qp> qp, RpcConfig config)
-      : config_(config),
-        send_buffer_size_(config_.max_req_payload + sizeof(detail::RpcHeader)),
-        recv_buffer_size_(config_.max_resp_payload + sizeof(detail::RpcHeader)),
-        qp_(qp), send_buffer_pool_(config_.max_inflight * send_buffer_size_),
-        send_mr_(qp->pd_ptr()->reg_mr(send_buffer_pool_.data(),
-                                      send_buffer_pool_.size())),
-        recv_buffer_pool_(config_.max_inflight * recv_buffer_size_),
-        recv_mr_(qp->pd_ptr()->reg_mr(recv_buffer_pool_.data(),
-                                      recv_buffer_pool_.size())),
-        slots_(config_.max_inflight), free_slots_(config_.max_inflight * 2),
-        worker_(&Client::Impl::start_recv_workers, this) {
-
+      : config_(config)
+      , send_buffer_size_(config_.max_req_payload + sizeof(detail::RpcHeader))
+      , recv_buffer_size_(config_.max_resp_payload + sizeof(detail::RpcHeader))
+      , qp_(qp)
+      , send_buffer_pool_(config_.max_inflight * send_buffer_size_)
+      , send_mr_(qp->pd_ptr()->reg_mr(send_buffer_pool_.data(), send_buffer_pool_.size()))
+      , recv_buffer_pool_(config_.max_inflight * recv_buffer_size_)
+      , recv_mr_(qp->pd_ptr()->reg_mr(recv_buffer_pool_.data(), recv_buffer_pool_.size()))
+      , slots_(config_.max_inflight)
+      , free_slots_(config_.max_inflight * 2)
+      , worker_(&Client::Impl::start_recv_workers, this) {
     for (uint32_t i = 0; i < config_.max_inflight; ++i) {
       free_slots_.enqueue(i);
     }
 
-    get_logger()->info(
-        "Client initialized with {} slots, send_buf={}, recv_buf={}",
-        config_.max_inflight, send_buffer_size_, recv_buffer_size_);
+    get_logger()->info("Client initialized with {} slots, send_buf={}, recv_buf={}",
+                       config_.max_inflight, send_buffer_size_, recv_buffer_size_);
   }
 
   void start_recv_workers() {
@@ -66,8 +64,7 @@ struct Client::Impl {
     while (true) {
       auto recv_slice_mr = rdmapp::mr_view(recv_mr_, offset, recv_buffer_size_);
       try {
-        auto [nbytes, _] =
-            co_await qp_->recv(recv_slice_mr, rdmapp::use_native_awaitable);
+        auto [nbytes, _] = co_await qp_->recv(recv_slice_mr, rdmapp::use_native_awaitable);
 
         if (nbytes < sizeof(detail::RpcHeader)) [[unlikely]] {
           get_logger()->warn("Client: received too small packet: {}", nbytes);
@@ -88,17 +85,15 @@ struct Client::Impl {
         detail::RpcSlot &slot = slots_[slot_idx];
 
         if (slot.expected_req_id != recv_id) [[unlikely]] {
-          get_logger()->error("Client: mismatch req_id: expected={} get={}",
-                              slot.expected_req_id, recv_id);
+          get_logger()->error("Client: mismatch req_id: expected={} get={}", slot.expected_req_id,
+                              recv_id);
           std::terminate();
         }
 
         std::size_t payload_len = header->payload_len;
-        std::size_t copy_len =
-            std::min((std::size_t)payload_len, slot.user_resp_buffer.size());
+        std::size_t copy_len = std::min((std::size_t)payload_len, slot.user_resp_buffer.size());
 
-        std::copy_n(buffer_ptr + sizeof(detail::RpcHeader), copy_len,
-                    slot.user_resp_buffer.data());
+        std::copy_n(buffer_ptr + sizeof(detail::RpcHeader), copy_len, slot.user_resp_buffer.data());
 
         slot.actual_len = copy_len;
 
@@ -106,8 +101,7 @@ struct Client::Impl {
         while ((w = slot.waiter.load()) == detail::kWaiterEmpty) {
           // spin
         }
-        auto h =
-            std::coroutine_handle<>::from_address(reinterpret_cast<void *>(w));
+        auto h = std::coroutine_handle<>::from_address(reinterpret_cast<void *>(w));
         h.resume();
 
       } catch (const std::exception &e) {
@@ -141,8 +135,7 @@ Client::Client(std::shared_ptr<rdmapp::qp> qp, RpcConfig config)
 Client::~Client() = default;
 
 auto Client::call(uint32_t fn_id, std::span<const std::byte> req_data,
-                  std::span<std::byte> resp_buffer)
-    -> cppcoro::task<std::size_t> {
+                  std::span<std::byte> resp_buffer) -> cppcoro::task<std::size_t> {
   if (req_data.size() > impl_->config_.max_req_payload) {
     throw std::runtime_error("request payload too large");
   }
@@ -161,11 +154,9 @@ auto Client::call(uint32_t fn_id, std::span<const std::byte> req_data,
 
   std::size_t send_offset = slot_idx * impl_->send_buffer_size_;
   auto send_slice_mr =
-      rdmapp::mr_view(impl_->send_mr_, send_offset,
-                      sizeof(detail::RpcHeader) + req_data.size());
+      rdmapp::mr_view(impl_->send_mr_, send_offset, sizeof(detail::RpcHeader) + req_data.size());
 
-  detail::RpcHeader *header =
-      reinterpret_cast<detail::RpcHeader *>(send_slice_mr.span().data());
+  detail::RpcHeader *header = reinterpret_cast<detail::RpcHeader *>(send_slice_mr.span().data());
   header->req_id = req_id;
   header->payload_len = static_cast<uint32_t>(req_data.size());
   header->fn_id = fn_id;
@@ -185,8 +176,7 @@ auto Client::call(uint32_t fn_id, std::span<const std::byte> req_data,
   co_return nbytes;
 }
 
-ClientMux::ClientMux(std::vector<std::shared_ptr<rdmapp::qp>> qps,
-                     RpcConfig config) {
+ClientMux::ClientMux(std::vector<std::shared_ptr<rdmapp::qp>> qps, RpcConfig config) {
   for (auto &qp : qps) {
     clients_.emplace_back(std::make_unique<Client>(qp, config));
   }
@@ -195,11 +185,9 @@ ClientMux::ClientMux(std::vector<std::shared_ptr<rdmapp::qp>> qps,
 ClientMux::~ClientMux() = default;
 
 auto ClientMux::call(uint32_t fn_id, std::span<const std::byte> req_data,
-                     std::span<std::byte> resp_buffer)
-    -> cppcoro::task<std::size_t> {
-  return clients_[selector_.fetch_add(1, std::memory_order_relaxed) %
-                  clients_.size()]
-      ->call(fn_id, req_data, resp_buffer);
+                     std::span<std::byte> resp_buffer) -> cppcoro::task<std::size_t> {
+  return clients_[selector_.fetch_add(1, std::memory_order_relaxed) % clients_.size()]->call(
+      fn_id, req_data, resp_buffer);
 }
 
 } // namespace coverbs_rpc
