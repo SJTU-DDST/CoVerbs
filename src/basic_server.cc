@@ -1,4 +1,4 @@
-#include "coverbs_rpc/server.hpp"
+#include "coverbs_rpc/basic_server.hpp"
 #include "coverbs_rpc/logger.hpp"
 
 #include <cppcoro/when_all.hpp>
@@ -6,7 +6,8 @@
 
 namespace coverbs_rpc {
 
-Server::Server(std::shared_ptr<rdmapp::qp> qp, RpcConfig config, std::uint32_t thread_count)
+basic_server::basic_server(std::shared_ptr<rdmapp::qp> qp, RpcConfig config,
+                           std::uint32_t thread_count)
     : config_(config)
     , send_buffer_size_(config_.max_resp_payload + sizeof(detail::RpcHeader))
     , recv_buffer_size_(config_.max_req_payload + sizeof(detail::RpcHeader))
@@ -20,7 +21,7 @@ Server::Server(std::shared_ptr<rdmapp::qp> qp, RpcConfig config, std::uint32_t t
                      thread_count);
 }
 
-auto Server::register_handler(uint32_t fn_id, Handler h) -> void {
+auto basic_server::register_handler(uint32_t fn_id, Handler h) -> void {
   std::lock_guard<std::mutex> lock(handlers_mutex_);
   bool ok = handlers_.find(fn_id) == handlers_.end();
   assert(ok);
@@ -31,7 +32,7 @@ auto Server::register_handler(uint32_t fn_id, Handler h) -> void {
   handlers_[fn_id] = std::move(h);
 }
 
-auto Server::run() -> cppcoro::task<void> {
+auto basic_server::run() -> cppcoro::task<void> {
   std::vector<cppcoro::task<void>> workers;
   workers.reserve(config_.max_inflight);
 
@@ -42,7 +43,7 @@ auto Server::run() -> cppcoro::task<void> {
   co_await cppcoro::when_all(std::move(workers));
 }
 
-auto Server::server_worker(std::size_t idx) -> cppcoro::task<void> {
+auto basic_server::server_worker(std::size_t idx) -> cppcoro::task<void> {
   std::size_t const recv_offset = idx * recv_buffer_size_;
   std::size_t const send_offset = idx * send_buffer_size_;
 

@@ -1,4 +1,4 @@
-#include "coverbs_rpc/client.hpp"
+#include "coverbs_rpc/basic_client.hpp"
 #include "coverbs_rpc/logger.hpp"
 
 #include <concurrentqueue.h>
@@ -31,7 +31,7 @@ static auto pause() noexcept -> void { __builtin_ia32_pause(); }
 
 } // namespace detail
 
-struct Client::Impl {
+struct basic_client::Impl {
   Impl(std::shared_ptr<rdmapp::qp> qp, RpcConfig config)
       : config_(config)
       , send_buffer_size_(config_.max_req_payload + sizeof(detail::RpcHeader))
@@ -43,7 +43,7 @@ struct Client::Impl {
       , recv_mr_(qp->pd_ptr()->reg_mr(recv_buffer_pool_.data(), recv_buffer_pool_.size()))
       , slots_(config_.max_inflight)
       , free_slots_(config_.max_inflight * 2)
-      , worker_(&Client::Impl::start_recv_workers, this) {
+      , worker_(&basic_client::Impl::start_recv_workers, this) {
     for (uint32_t i = 0; i < config_.max_inflight; ++i) {
       free_slots_.enqueue(i);
     }
@@ -131,13 +131,13 @@ struct Client::Impl {
   std::jthread worker_;
 };
 
-Client::Client(std::shared_ptr<rdmapp::qp> qp, RpcConfig config)
+basic_client::basic_client(std::shared_ptr<rdmapp::qp> qp, RpcConfig config)
     : impl_(std::make_unique<Impl>(qp, config)) {}
 
-Client::~Client() = default;
+basic_client::~basic_client() = default;
 
-auto Client::call(uint32_t fn_id, std::span<const std::byte> req_data,
-                  std::span<std::byte> resp_buffer) -> cppcoro::task<std::size_t> {
+auto basic_client::call(uint32_t fn_id, std::span<const std::byte> req_data,
+                        std::span<std::byte> resp_buffer) -> cppcoro::task<std::size_t> {
   if (req_data.size() > impl_->config_.max_req_payload) {
     throw std::runtime_error("request payload too large");
   }
@@ -181,7 +181,7 @@ auto Client::call(uint32_t fn_id, std::span<const std::byte> req_data,
 
 ClientMux::ClientMux(std::vector<std::shared_ptr<rdmapp::qp>> qps, RpcConfig config) {
   for (auto &qp : qps) {
-    clients_.emplace_back(std::make_unique<Client>(qp, config));
+    clients_.emplace_back(std::make_unique<basic_client>(qp, config));
   }
 }
 

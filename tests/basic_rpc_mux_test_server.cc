@@ -1,7 +1,7 @@
+#include "coverbs_rpc/basic_server.hpp"
 #include "coverbs_rpc/common.hpp"
 #include "coverbs_rpc/conn/acceptor.hpp"
 #include "coverbs_rpc/logger.hpp"
-#include "coverbs_rpc/server.hpp"
 
 #include <algorithm>
 #include <cppcoro/async_scope.hpp>
@@ -9,7 +9,6 @@
 #include <cppcoro/sync_wait.hpp>
 #include <cppcoro/task.hpp>
 #include <memory>
-#include <rdmapp/rdmapp.h>
 #include <thread>
 
 #include "rpc_mux_test.hpp"
@@ -18,7 +17,7 @@ using namespace coverbs_rpc;
 using namespace coverbs_rpc::test;
 
 auto handle_rpc(std::shared_ptr<rdmapp::qp> qp) -> cppcoro::task<void> {
-  Server server(qp, kServerRpcConfig);
+  basic_server server(qp, kServerRpcConfig);
   for (std::size_t i = 0; i < kNumHandlers; ++i) {
     server.register_handler(
         i, [i](std::span<std::byte> req, std::span<std::byte> resp) -> std::size_t {

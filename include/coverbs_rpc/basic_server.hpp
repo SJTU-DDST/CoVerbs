@@ -16,12 +16,13 @@
 
 namespace coverbs_rpc {
 
-class Server {
+class basic_server {
 public:
   using Handler =
       std::function<std::size_t(std::span<std::byte> payload, std::span<std::byte> resp)>;
 
-  Server(std::shared_ptr<rdmapp::qp> qp, RpcConfig config = {}, std::uint32_t thread_count = 4);
+  basic_server(std::shared_ptr<rdmapp::qp> qp, RpcConfig config = {},
+               std::uint32_t thread_count = 4);
 
   auto register_handler(uint32_t fn_id, Handler h) -> void;
 

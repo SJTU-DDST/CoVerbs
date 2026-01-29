@@ -1,4 +1,4 @@
-#include "coverbs_rpc/client.hpp"
+#include "coverbs_rpc/basic_client.hpp"
 #include "coverbs_rpc/common.hpp"
 #include "coverbs_rpc/conn/connector.hpp"
 #include "coverbs_rpc/logger.hpp"
@@ -8,7 +8,6 @@
 #include <cppcoro/task.hpp>
 #include <cppcoro/when_all.hpp>
 #include <memory>
-#include <rdmapp/rdmapp.h>
 #include <string>
 #include <thread>
 #include <vector>
@@ -25,7 +24,7 @@ constexpr int kCallCnt = 100000;
 constexpr int kReportInterval = 10000;
 } // namespace
 
-cppcoro::task<void> run_rpc_test(Client &client, int num_calls) {
+cppcoro::task<void> run_rpc_test(basic_client &client, int num_calls) {
   std::vector<std::byte> req_data(kRequestSize, kRequestByte);
   std::vector<std::byte> resp_data(kResponseSize);
 
@@ -56,7 +55,7 @@ cppcoro::task<void> run_test(cppcoro::io_service &io_service, std::shared_ptr<rd
                                     .qp_config{.max_send_wr = kClientMaxInFlight * 2,
                                                .max_recv_wr = kClientMaxInFlight * 2}});
   auto qp = co_await connector.connect(server_ip, server_port);
-  Client client(qp, kClientRpcConfig);
+  basic_client client(qp, kClientRpcConfig);
 
   const int kNumCalls = 1000;
   get_logger()->info("Step 1: Sequential test, calling RPC {} times...", kNumCalls);

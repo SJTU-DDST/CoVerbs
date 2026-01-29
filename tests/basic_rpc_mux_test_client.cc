@@ -1,4 +1,4 @@
-#include "coverbs_rpc/client.hpp"
+#include "coverbs_rpc/basic_client.hpp"
 #include "coverbs_rpc/common.hpp"
 #include "coverbs_rpc/conn/connector.hpp"
 #include "coverbs_rpc/logger.hpp"
@@ -9,7 +9,6 @@
 #include <cppcoro/task.hpp>
 #include <exception>
 #include <memory>
-#include <rdmapp/rdmapp.h>
 #include <string>
 #include <thread>
 #include <vector>
@@ -26,7 +25,7 @@ constexpr int kThreads = 4;
 constexpr int kReportInterval = 10000;
 } // namespace
 
-auto base_test(Client &client) -> void {
+auto base_test(basic_client &client) -> void {
   get_logger()->info("Starting base test: {} handlers, {} calls each", kNumHandlers,
                      kNumCallsPerHandler);
 
@@ -83,7 +82,7 @@ cppcoro::task<void> run_test(cppcoro::io_service &io_service, std::shared_ptr<rd
                                     .qp_config{.max_send_wr = kClientMaxInFlight * 2,
                                                .max_recv_wr = kClientMaxInFlight * 2}});
   auto qp = co_await connector.connect(server_ip, server_port);
-  Client client(qp, kClientRpcConfig);
+  basic_client client(qp, kClientRpcConfig);
 
   base_test(client);
 

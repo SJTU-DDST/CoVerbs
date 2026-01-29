@@ -12,7 +12,6 @@
 #include <cstdint>
 #include <memory>
 #include <rdmapp/completion_token.h>
-#include <rdmapp/rdmapp.h>
 #include <spdlog/fmt/ranges.h>
 #include <string>
 #include <thread>

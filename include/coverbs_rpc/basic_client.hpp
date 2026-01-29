@@ -12,10 +12,10 @@
 
 namespace coverbs_rpc {
 
-class Client {
+class basic_client {
 public:
-  Client(std::shared_ptr<rdmapp::qp> qp, RpcConfig config = {});
-  ~Client();
+  basic_client(std::shared_ptr<rdmapp::qp> qp, RpcConfig config = {});
+  ~basic_client();
 
   auto call(uint32_t fn_id, std::span<const std::byte> req_data, std::span<std::byte> resp_buffer)
       -> cppcoro::task<std::size_t>;
@@ -34,7 +34,7 @@ public:
       -> cppcoro::task<std::size_t>;
 
 private:
-  std::vector<std::unique_ptr<Client>> clients_;
+  std::vector<std::unique_ptr<basic_client>> clients_;
   std::atomic<unsigned int> selector_{0};
 };
 
