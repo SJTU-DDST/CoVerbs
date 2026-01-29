@@ -13,6 +13,7 @@
 #include <rdmapp/cq.h>
 #include <rdmapp/cq_poller.h>
 
+#include "coverbs_rpc/common.hpp"
 #include "coverbs_rpc/conn/transmission.hpp"
 
 namespace cppcoro {
@@ -29,7 +30,8 @@ struct qp_acceptor {
   using cq_poller_t = rdmapp::native_cq_poller;
 
   qp_acceptor(cppcoro::io_service &io_service, uint16_t port,
-              std::shared_ptr<pd> pd, std::shared_ptr<srq> srq = nullptr);
+              std::shared_ptr<pd> pd, std::shared_ptr<srq> srq = nullptr,
+              ConnConfig config = {});
 
   auto accept() -> cppcoro::task<std::shared_ptr<qp_t>>;
 
@@ -54,6 +56,7 @@ private:
   std::list<cq_poller_t> pollers_;
   uint16_t const port_;
   cppcoro::io_service &io_service_;
+  ConnConfig const config_;
 };
 
 } // namespace coverbs_rpc

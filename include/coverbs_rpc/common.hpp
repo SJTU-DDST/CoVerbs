@@ -2,8 +2,14 @@
 
 #include <cstddef>
 #include <cstdint>
+#include <rdmapp/qp.h>
 
 namespace coverbs_rpc {
+
+struct ConnConfig {
+  uint32_t cq_size = 2048;
+  rdmapp::qp_config qp_config = rdmapp::default_qp_config();
+};
 
 struct RpcConfig {
   std::size_t max_inflight = 512;

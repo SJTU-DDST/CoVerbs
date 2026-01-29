@@ -6,6 +6,7 @@
 #include <cppcoro/net/ipv4_address.hpp>
 #include <cppcoro/net/ipv4_endpoint.hpp>
 #include <cppcoro/net/socket.hpp>
+#include <rdmapp/qp.h>
 #include <stdexcept>
 
 namespace coverbs_rpc {
@@ -19,9 +20,11 @@ static auto config_socket(cppcoro::net::socket &socket) {
 }
 
 qp_acceptor::qp_acceptor(cppcoro::io_service &io_service, uint16_t port,
-                         std::shared_ptr<pd> pd, std::shared_ptr<srq> srq)
+                         std::shared_ptr<pd> pd, std::shared_ptr<srq> srq,
+                         ConnConfig config)
     : acceptor_socket_(cppcoro::net::socket::create_tcpv4(io_service)), pd_(pd),
-      srq_(srq), port_(port), io_service_(io_service) {
+      srq_(srq), port_(port), io_service_(io_service),
+      config_(std::move(config)) {
   try {
     config_socket(acceptor_socket_);
     acceptor_socket_.bind(
@@ -42,7 +45,7 @@ auto qp_acceptor::accept_qp(cppcoro::net::socket &socket,
   auto remote_qp = co_await recv_qp(socket);
   auto local_qp = std::make_shared<qp_t>(
       remote_qp.header.lid, remote_qp.header.qp_num, remote_qp.header.sq_psn,
-      remote_qp.header.gid, pd_, recv_cq, send_cq);
+      remote_qp.header.gid, pd_, recv_cq, send_cq, srq_, config_.qp_config);
   local_qp->user_data() = std::move(remote_qp.user_data);
   co_await send_qp(*local_qp, socket);
   co_return local_qp;
@@ -77,7 +80,7 @@ auto qp_acceptor::accept_multiple(qp_handshake &handshake)
 }
 
 auto qp_acceptor::alloc_cq() -> std::shared_ptr<rdmapp::cq> {
-  auto cq = std::make_shared<rdmapp::cq>(pd_->device_ptr(), 2048);
+  auto cq = std::make_shared<rdmapp::cq>(pd_->device_ptr(), config_.cq_size);
   pollers_.emplace_back(cq);
   return cq;
 }

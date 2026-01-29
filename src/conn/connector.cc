@@ -5,15 +5,18 @@
 #include <cppcoro/io_service.hpp>
 #include <cppcoro/net/ipv4_address.hpp>
 #include <cppcoro/net/ipv4_endpoint.hpp>
+#include <rdmapp/qp.h>
 
 namespace coverbs_rpc {
 
 qp_connector::qp_connector(cppcoro::io_service &io_service,
-                           std::shared_ptr<pd> pd, std::shared_ptr<srq> srq)
-    : pd_(pd), srq_(srq), io_service_(io_service) {}
+                           std::shared_ptr<pd> pd, std::shared_ptr<srq> srq,
+                           ConnConfig config)
+    : pd_(pd), srq_(srq), io_service_(io_service), config_(std::move(config)) {}
 
 auto qp_connector::alloc_cq() noexcept -> std::shared_ptr<cq> {
-  auto cq = std::make_shared<rdmapp::cq>(this->pd_->device_ptr(), 2048);
+  auto cq =
+      std::make_shared<rdmapp::cq>(this->pd_->device_ptr(), config_.cq_size);
   pollers_.emplace_back(cq);
   return cq;
 }
@@ -22,7 +25,8 @@ auto qp_connector::from_socket(cppcoro::net::socket &socket,
                                std::span<std::byte const> userdata)
     -> cppcoro::task<std::shared_ptr<qp_t>> {
   auto cq = alloc_cq();
-  auto qp_ptr = std::make_shared<qp_t>(this->pd_, cq, cq);
+  auto qp_ptr =
+      std::make_shared<qp_t>(this->pd_, cq, cq, srq_, config_.qp_config);
   qp_ptr->user_data().assign(userdata.begin(), userdata.end());
   co_await send_qp(*qp_ptr, socket);
 
