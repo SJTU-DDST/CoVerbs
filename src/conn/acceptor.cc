@@ -5,14 +5,25 @@
 #include <cppcoro/io_service.hpp>
 #include <cppcoro/net/ipv4_address.hpp>
 #include <cppcoro/net/ipv4_endpoint.hpp>
+#include <cppcoro/net/socket.hpp>
+#include <stdexcept>
 
 namespace coverbs_rpc {
+
+static auto config_socket(cppcoro::net::socket &socket) {
+  int fd = socket.native_handle();
+  int opt = 1;
+  if (::setsockopt(fd, SOL_SOCKET, SO_REUSEADDR, &opt, sizeof(opt)) < 0) {
+    throw std::runtime_error("confif socket failed");
+  }
+}
 
 qp_acceptor::qp_acceptor(cppcoro::io_service &io_service, uint16_t port,
                          std::shared_ptr<pd> pd, std::shared_ptr<srq> srq)
     : acceptor_socket_(cppcoro::net::socket::create_tcpv4(io_service)), pd_(pd),
       srq_(srq), port_(port), io_service_(io_service) {
   try {
+    config_socket(acceptor_socket_);
     acceptor_socket_.bind(
         cppcoro::net::ipv4_endpoint(cppcoro::net::ipv4_address(), port));
     acceptor_socket_.listen();

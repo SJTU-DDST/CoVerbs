@@ -2,8 +2,11 @@ add_rules("mode.debug", "mode.check", "mode.release")
 
 package("rdmapp")
     set_description("The rdmapp package")
+    add_deps("ibverbs", {system=true})
+    add_deps("pthread", {system=true})
     add_deps("asio 1.36.0")
     add_deps("spdlog 1.16.0", {private=true, configs={header_only=true}})
+
     add_urls("https://github.com/SJTU-DDST/rdmapp.git")
     on_install(function (package)
         local configs = {}
@@ -35,10 +38,17 @@ add_includedirs("include")
 
 target("coverbs-rpc")
     set_kind("static")
-    add_packages("rdmapp", "cppcoro", "spdlog" , {public=true})
+    add_packages("rdmapp",  {public=true})
+    add_packages("cppcoro", {public=true})
+    add_packages("spdlog", {public=true})
     add_files("src/conn/*.cc")
 
 target("naive_test")
     set_kind("binary")
-    add_files("src/tests/naive.cc")
+    add_files("src/tests/naive_test.cc")
+    add_deps("coverbs-rpc")
+
+target("basic_conn_test")
+    set_kind("binary")
+    add_files("src/tests/basic_conn_test.cc")
     add_deps("coverbs-rpc")
