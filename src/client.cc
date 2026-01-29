@@ -140,7 +140,7 @@ Client::Client(std::shared_ptr<rdmapp::qp> qp, RpcConfig config)
 
 Client::~Client() = default;
 
-auto Client::call(std::span<const std::byte> req_data,
+auto Client::call(uint32_t fn_id, std::span<const std::byte> req_data,
                   std::span<std::byte> resp_buffer)
     -> cppcoro::task<std::size_t> {
   if (req_data.size() > impl_->config_.max_req_payload) {
@@ -168,6 +168,7 @@ auto Client::call(std::span<const std::byte> req_data,
       reinterpret_cast<detail::RpcHeader *>(send_slice_mr.span().data());
   header->req_id = req_id;
   header->payload_len = static_cast<uint32_t>(req_data.size());
+  header->fn_id = fn_id;
 
   std::copy_n(req_data.data(), req_data.size(),
               send_slice_mr.span().data() + sizeof(detail::RpcHeader));
@@ -193,12 +194,12 @@ ClientMux::ClientMux(std::vector<std::shared_ptr<rdmapp::qp>> qps,
 
 ClientMux::~ClientMux() = default;
 
-auto ClientMux::call(std::span<const std::byte> req_data,
+auto ClientMux::call(uint32_t fn_id, std::span<const std::byte> req_data,
                      std::span<std::byte> resp_buffer)
     -> cppcoro::task<std::size_t> {
   return clients_[selector_.fetch_add(1, std::memory_order_relaxed) %
                   clients_.size()]
-      ->call(req_data, resp_buffer);
+      ->call(fn_id, req_data, resp_buffer);
 }
 
 } // namespace coverbs_rpc

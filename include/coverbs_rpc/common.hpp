@@ -22,7 +22,7 @@ namespace detail {
 struct RpcHeader {
   uint64_t req_id;
   uint32_t payload_len;
-  uint32_t padding;
+  uint32_t fn_id;
 };
 
 constexpr uintptr_t kWaiterEmpty = 0;

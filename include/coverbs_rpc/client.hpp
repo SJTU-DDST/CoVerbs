@@ -18,7 +18,7 @@ public:
   Client(std::shared_ptr<rdmapp::qp> qp, RpcConfig config = {});
   ~Client();
 
-  auto call(std::span<const std::byte> req_data,
+  auto call(uint32_t fn_id, std::span<const std::byte> req_data,
             std::span<std::byte> resp_buffer) -> cppcoro::task<std::size_t>;
 
 private:
@@ -32,7 +32,7 @@ public:
             RpcConfig config = {});
   ~ClientMux();
 
-  auto call(std::span<const std::byte> req_data,
+  auto call(uint32_t fn_id, std::span<const std::byte> req_data,
             std::span<std::byte> resp_buffer) -> cppcoro::task<std::size_t>;
 
 private:

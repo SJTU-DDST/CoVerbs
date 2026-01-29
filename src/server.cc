@@ -2,12 +2,13 @@
 #include "coverbs_rpc/logger.hpp"
 
 #include <cppcoro/when_all.hpp>
+#include <exception>
 
 namespace coverbs_rpc {
 
-Server::Server(std::shared_ptr<rdmapp::qp> qp, Handler h, RpcConfig config,
+Server::Server(std::shared_ptr<rdmapp::qp> qp, RpcConfig config,
                std::uint32_t thread_count)
-    : h_(h), config_(config),
+    : config_(config),
       send_buffer_size_(config_.max_resp_payload + sizeof(detail::RpcHeader)),
       recv_buffer_size_(config_.max_req_payload + sizeof(detail::RpcHeader)),
       qp_(qp), tp_(thread_count),
@@ -19,6 +20,17 @@ Server::Server(std::shared_ptr<rdmapp::qp> qp, Handler h, RpcConfig config,
                                     send_buffer_pool_.size())) {
   get_logger()->info("Server initialized with {} slots, thread_count={}",
                      config_.max_inflight, thread_count);
+}
+
+auto Server::register_handler(uint32_t fn_id, Handler h) -> void {
+  std::lock_guard<std::mutex> lock(handlers_mutex_);
+  bool ok = handlers_.find(fn_id) == handlers_.end();
+  assert(ok);
+  if (!ok) {
+    get_logger()->critical("Server: register the same handler");
+    std::terminate();
+  }
+  handlers_[fn_id] = std::move(h);
 }
 
 auto Server::run() -> cppcoro::task<void> {
@@ -62,7 +74,14 @@ auto Server::server_worker(std::size_t idx) -> cppcoro::task<void> {
                                  sizeof(detail::RpcHeader),
                              config_.max_resp_payload);
 
-    std::size_t resp_payload_len = h_(payload, resp_payload_span);
+    std::size_t resp_payload_len = 0;
+    if (auto it = handlers_.find(header->fn_id); it != handlers_.end()) {
+      resp_payload_len = it->second(payload, resp_payload_span);
+    } else {
+      get_logger()->error("Server: handler not found for fn_id={}",
+                          header->fn_id);
+      continue;
+    }
 
     resp_header->req_id = header->req_id;
     resp_header->payload_len = static_cast<uint32_t>(resp_payload_len);
