@@ -83,7 +83,7 @@ inline constexpr bool is_with_session_v = function_traits<decltype(Handler)>::ca
 template <auto Handler>
 inline constexpr bool is_member_fn_v = function_traits<decltype(Handler)>::is_member_fn;
 
-template <auto Handler>
+template <auto Handler, typename Signature = decltype(Handler)>
 struct function_id_traits {
   static constexpr std::string_view get_handler_name() { return __PRETTY_FUNCTION__; }
 
@@ -104,5 +104,7 @@ struct function_id_traits {
 
 template <auto Handler>
 inline constexpr uint32_t function_id = function_id_traits<Handler>::id;
+template <auto Handler>
+inline constexpr std::string_view function_name = function_id_traits<Handler>::name;
 
 } // namespace coverbs_rpc::detail

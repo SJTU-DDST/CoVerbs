@@ -3,6 +3,7 @@
 #include "coverbs_rpc/basic_server.hpp"
 #include "coverbs_rpc/conn/acceptor.hpp"
 #include "coverbs_rpc/detail/traits.hpp"
+#include "coverbs_rpc/logger.hpp"
 #include "coverbs_rpc/server_mux.hpp"
 
 #include <cppcoro/async_scope.hpp>
@@ -60,6 +61,8 @@ private:
     using Req = detail::rpc_req_t<Handler>;
     using Resp = detail::rpc_resp_t<Handler>;
     constexpr uint32_t fn_id = detail::function_id<Handler>;
+    constexpr std::string_view fn_name = detail::function_name<Handler>;
+    get_logger()->info("typed_server: register: id={} name={}", fn_id, fn_name);
 
     auto h = [inv = std::move(invoker)](std::span<std::byte> req_bytes,
                                         std::span<std::byte> resp_bytes) -> std::size_t {
@@ -75,6 +78,7 @@ private:
         // Current architecture doesn't support async handlers yet, but we can add later
         // resp = co_await inv(req);
         std::terminate(); // Not implemented
+        static_assert(!sizeof(Handler));
       } else {
         resp = inv(req);
       }

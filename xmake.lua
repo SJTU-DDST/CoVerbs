@@ -79,6 +79,15 @@ target("basic_rpc_mux_test_client")
     add_files("tests/basic_rpc_mux_test_client.cc")
     add_rules("test_config")
 
-target("typed_rpc_test")
-    add_files("tests/typed_rpc_test.cc")
+target("typed_rpc_basic_test")
+    add_files("tests/typed_rpc_basic_test.cc")
+    add_rules("test_config")
+
+
+target("typed_rpc_mux_test_server")
+    add_files("tests/typed_rpc_mux_test_server.cc")
+    add_rules("test_config")
+
+target("typed_rpc_mux_test_client")
+    add_files("tests/typed_rpc_mux_test_client.cc")
     add_rules("test_config")
