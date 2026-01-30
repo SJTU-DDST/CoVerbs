@@ -1,7 +1,7 @@
 #include "coverbs_rpc/basic_client.hpp"
 #include "coverbs_rpc/common.hpp"
 #include "coverbs_rpc/conn/connector.hpp"
-#include "coverbs_rpc/logger.hpp"
+#include "coverbs_rpc/detail/logger.hpp"
 
 #include <chrono>
 #include <cppcoro/io_service.hpp>
@@ -17,6 +17,7 @@
 
 using namespace coverbs_rpc;
 using namespace coverbs_rpc::test;
+using coverbs_rpc::detail::get_logger;
 
 namespace {
 std::string server_ip = "192.168.98.70"; // default

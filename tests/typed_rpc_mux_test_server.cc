@@ -1,4 +1,4 @@
-#include "coverbs_rpc/logger.hpp"
+#include "coverbs_rpc/detail/logger.hpp"
 #include "coverbs_rpc/typed_server.hpp"
 
 #include <cppcoro/io_service.hpp>
@@ -10,6 +10,7 @@
 
 using namespace coverbs_rpc;
 using namespace coverbs_rpc::test;
+using coverbs_rpc::detail::get_logger;
 
 namespace coverbs_rpc::test {
 template <std::size_t I>

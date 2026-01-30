@@ -1,11 +1,12 @@
 #include "coverbs_rpc/basic_server.hpp"
-#include "coverbs_rpc/logger.hpp"
+#include "coverbs_rpc/detail/logger.hpp"
 
 #include <cppcoro/async_scope.hpp>
 #include <cppcoro/when_all.hpp>
 #include <exception>
 
 namespace coverbs_rpc {
+using detail::get_logger;
 
 basic_server::basic_server(std::shared_ptr<rdmapp::qp> qp, const basic_mux &mux, RpcConfig config,
                            std::uint32_t thread_count)

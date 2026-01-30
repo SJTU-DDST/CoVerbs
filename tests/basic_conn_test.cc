@@ -1,6 +1,6 @@
 #include "coverbs_rpc/conn/acceptor.hpp"
 #include "coverbs_rpc/conn/connector.hpp"
-#include "coverbs_rpc/logger.hpp"
+#include "coverbs_rpc/detail/logger.hpp"
 
 #include <algorithm>
 #include <cassert>
@@ -15,6 +15,10 @@
 #include <spdlog/fmt/ranges.h>
 #include <string>
 #include <thread>
+
+namespace coverbs_rpc {
+using detail::get_logger;
+}
 
 constexpr std::size_t kMsgSize = 4096;
 

@@ -1,5 +1,5 @@
 #include "coverbs_rpc/basic_client.hpp"
-#include "coverbs_rpc/logger.hpp"
+#include "coverbs_rpc/detail/logger.hpp"
 
 #include <concurrentqueue.h>
 #include <cppcoro/async_scope.hpp>
@@ -8,6 +8,7 @@
 #include <rdmapp/qp.h>
 
 namespace coverbs_rpc {
+using detail::get_logger;
 
 namespace detail {
 

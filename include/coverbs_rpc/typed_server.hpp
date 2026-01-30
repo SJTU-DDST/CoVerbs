@@ -1,30 +1,22 @@
 #pragma once
 
-#include "coverbs_rpc/basic_server.hpp"
 #include "coverbs_rpc/conn/acceptor.hpp"
 #include "coverbs_rpc/detail/traits.hpp"
-#include "coverbs_rpc/logger.hpp"
 #include "coverbs_rpc/server_mux.hpp"
 
-#include <cppcoro/async_scope.hpp>
 #include <cppcoro/io_service.hpp>
+#include <cppcoro/task.hpp>
 #include <exception>
 #include <glaze/glaze.hpp>
 #include <memory>
+#include <stdexcept>
 
 namespace coverbs_rpc {
 
 class typed_server {
 public:
   typed_server(cppcoro::io_service &io_service, uint16_t port, TypedRpcConfig config = {},
-               std::uint32_t thread_count = 4)
-      : config_(config)
-      , thread_count_(thread_count)
-      , device_(std::make_shared<rdmapp::device>(config.device_nr, config.port_nr))
-      , pd_(std::make_shared<rdmapp::pd>(device_))
-      , io_service_(io_service)
-      , acceptor_(io_service_, port, pd_, nullptr, config.to_conn_config())
-      , mux_() {}
+               std::uint32_t thread_count = 4);
 
   template <auto Handler>
   auto register_handler() -> void {
@@ -43,17 +35,9 @@ public:
     register_handler_impl<Handler>(invoker);
   }
 
-  auto run() -> cppcoro::task<void> {
-    cppcoro::async_scope scope;
-    while (true) {
-      auto qp = co_await acceptor_.accept();
-      get_logger()->info("typed_server: accepted connection");
-      scope.spawn(handle_connection(std::move(qp)));
-    }
-    co_await scope.join();
-  }
+  auto run() -> cppcoro::task<void>;
 
-  ~typed_server() { acceptor_.close(); }
+  ~typed_server();
 
 private:
   template <auto Handler, typename Invoker>
@@ -62,15 +46,13 @@ private:
     using Resp = detail::rpc_resp_t<Handler>;
     constexpr uint32_t fn_id = detail::function_id<Handler>;
     constexpr std::string_view fn_name = detail::function_name<Handler>;
-    get_logger()->info("typed_server: register: id={} name={}", fn_id, fn_name);
 
     auto h = [inv = std::move(invoker)](std::span<std::byte> req_bytes,
                                         std::span<std::byte> resp_bytes) -> std::size_t {
       Req req{};
       auto err = glz::read_beve(req, req_bytes);
       if (err) [[unlikely]] {
-        get_logger()->error("typed_server: failed to deserialize request");
-        return 0;
+        throw std::runtime_error("typed_server: failed to deserialize request");
       }
 
       Resp resp;
@@ -85,23 +67,15 @@ private:
 
       auto ec = glz::write_beve(resp, resp_bytes);
       if (ec) [[unlikely]] {
-        get_logger()->error("typed_server: failed to serialize response");
-        return 0;
+        throw std::runtime_error("typed_server: failed to serialize response");
       }
       return ec.count;
     };
 
-    mux_.register_handler(fn_id, std::move(h));
+    mux_.register_handler(fn_id, fn_name, std::move(h));
   }
 
-  auto handle_connection(std::shared_ptr<rdmapp::qp> qp) -> cppcoro::task<void> {
-    basic_server server(qp, mux_, config_, thread_count_);
-    try {
-      co_await server.run();
-    } catch (const std::exception &e) {
-      get_logger()->warn("typed_server: connection closed with error: {}", e.what());
-    }
-  }
+  auto handle_connection(std::shared_ptr<rdmapp::qp> qp) -> cppcoro::task<void>;
 
   TypedRpcConfig const config_;
   uint32_t const thread_count_;

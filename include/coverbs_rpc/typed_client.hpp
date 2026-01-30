@@ -3,12 +3,12 @@
 #include "coverbs_rpc/basic_client.hpp"
 #include "coverbs_rpc/conn/connector.hpp"
 #include "coverbs_rpc/detail/traits.hpp"
-#include "coverbs_rpc/logger.hpp"
 
 #include <cppcoro/io_service.hpp>
 #include <cppcoro/sync_wait.hpp>
 #include <glaze/glaze.hpp>
 #include <memory>
+#include <stdexcept>
 #include <vector>
 
 namespace coverbs_rpc {
@@ -16,15 +16,7 @@ namespace coverbs_rpc {
 class typed_client {
 public:
   typed_client(cppcoro::io_service &io_service, std::string_view hostname, uint16_t port,
-               TypedRpcConfig config = {})
-      : config_(config)
-      , device_(std::make_shared<rdmapp::device>(config.device_nr, config.port_nr))
-      , pd_(std::make_shared<rdmapp::pd>(device_))
-      , io_service_(io_service)
-      , connector_(io_service_, pd_, nullptr, config.to_conn_config()) {
-    qp_ = cppcoro::sync_wait(connector_.connect(hostname, port));
-    client_ = std::make_unique<basic_client>(qp_, config_);
-  }
+               TypedRpcConfig config = {});
 
   template <auto Handler>
   auto call(auto &&req) -> cppcoro::task<detail::rpc_resp_t<Handler>> {
@@ -36,8 +28,7 @@ public:
     std::vector<std::byte> send_buffer(config_.max_req_payload);
     auto ec = glz::write_beve(req, send_buffer);
     if (ec) [[unlikely]] {
-      get_logger()->error("typed_client: failed to serialize request");
-      std::terminate();
+      throw std::runtime_error("typed_client: failed to serialize request");
     }
     std::size_t req_size = ec.count;
 
@@ -48,8 +39,7 @@ public:
     Resp resp{};
     auto err = glz::read_beve(resp, std::span{recv_buffer.data(), resp_size});
     if (err) [[unlikely]] {
-      get_logger()->error("typed_client: failed to deserialize response");
-      std::terminate();
+      throw std::runtime_error("typed_client: failed to deserialize response");
     }
 
     co_return resp;

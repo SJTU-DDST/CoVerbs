@@ -1,4 +1,4 @@
-#include "coverbs_rpc/logger.hpp"
+#include "coverbs_rpc/detail/logger.hpp"
 #include "coverbs_rpc/typed_client.hpp"
 #include "coverbs_rpc/typed_server.hpp"
 
@@ -6,6 +6,10 @@
 #include <cppcoro/sync_wait.hpp>
 #include <cppcoro/task.hpp>
 #include <thread>
+
+namespace coverbs_rpc {
+using detail::get_logger;
+}
 
 struct EchoReq {
   std::string msg;

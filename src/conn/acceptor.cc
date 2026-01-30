@@ -1,6 +1,6 @@
 #include "coverbs_rpc/conn/acceptor.hpp"
 #include "coverbs_rpc/conn/transmission.hpp"
-#include "coverbs_rpc/logger.hpp"
+#include "coverbs_rpc/detail/logger.hpp"
 
 #include <cppcoro/io_service.hpp>
 #include <cppcoro/net/ipv4_address.hpp>
@@ -10,6 +10,8 @@
 #include <stdexcept>
 
 namespace coverbs_rpc {
+
+using detail::get_logger;
 
 static auto config_socket(cppcoro::net::socket &socket) {
   int fd = socket.native_handle();

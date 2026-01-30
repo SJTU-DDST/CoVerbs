@@ -1,13 +1,14 @@
 #include "coverbs_rpc/basic_server.hpp"
 #include "coverbs_rpc/common.hpp"
 #include "coverbs_rpc/conn/acceptor.hpp"
-#include "coverbs_rpc/logger.hpp"
+#include "coverbs_rpc/detail/logger.hpp"
 
 #include <algorithm>
 #include <cppcoro/async_scope.hpp>
 #include <cppcoro/io_service.hpp>
 #include <cppcoro/sync_wait.hpp>
 #include <cppcoro/task.hpp>
+#include <format>
 #include <memory>
 #include <thread>
 
@@ -15,29 +16,31 @@
 
 using namespace coverbs_rpc;
 using namespace coverbs_rpc::test;
+using coverbs_rpc::detail::get_logger;
 
 auto handle_rpc(std::shared_ptr<rdmapp::qp> qp) -> cppcoro::task<void> {
   basic_mux mux;
-  mux.register_handler(
-      kTestFnId, [](std::span<std::byte> req, std::span<std::byte> resp) -> std::size_t {
-        if (req.size() != kRequestSize) {
-          get_logger()->error("Server: unexpected request size: {}", req.size());
-          return 0;
-        }
-        for (auto b : req) {
-          if (b != kRequestByte) {
-            get_logger()->error("Server: unexpected request data");
-            return 0;
-          }
-        }
+  mux.register_handler(kTestFnId, std::format("test_fn_{}", kTestFnId),
+                       [](std::span<std::byte> req, std::span<std::byte> resp) -> std::size_t {
+                         if (req.size() != kRequestSize) {
+                           get_logger()->error("Server: unexpected request size: {}", req.size());
+                           return 0;
+                         }
+                         for (auto b : req) {
+                           if (b != kRequestByte) {
+                             get_logger()->error("Server: unexpected request data");
+                             return 0;
+                           }
+                         }
 
-        if (resp.size() < kResponseSize) {
-          get_logger()->error("Server: response buffer too small: {}", resp.size());
-          return 0;
-        }
-        std::fill_n(resp.data(), kResponseSize, kResponseByte);
-        return kResponseSize;
-      });
+                         if (resp.size() < kResponseSize) {
+                           get_logger()->error("Server: response buffer too small: {}",
+                                               resp.size());
+                           return 0;
+                         }
+                         std::fill_n(resp.data(), kResponseSize, kResponseByte);
+                         return kResponseSize;
+                       });
 
   basic_server server(qp, mux, kServerRpcConfig);
   co_await server.run();

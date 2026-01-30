@@ -3,7 +3,7 @@
 #include <spdlog/sinks/stdout_color_sinks.h>
 #include <spdlog/spdlog.h>
 
-namespace coverbs_rpc {
+namespace coverbs_rpc ::detail {
 
 inline std::shared_ptr<spdlog::logger> get_logger() {
   static auto logger = []() {
@@ -13,4 +13,4 @@ inline std::shared_ptr<spdlog::logger> get_logger() {
   return logger;
 }
 
-} // namespace coverbs_rpc
+} // namespace coverbs_rpc::detail

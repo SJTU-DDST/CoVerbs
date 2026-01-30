@@ -1,6 +1,6 @@
 #include "coverbs_rpc/conn/connector.hpp"
 #include "coverbs_rpc/conn/transmission.hpp"
-#include "coverbs_rpc/logger.hpp"
+#include "coverbs_rpc/detail/logger.hpp"
 
 #include <cppcoro/io_service.hpp>
 #include <cppcoro/net/ipv4_address.hpp>
@@ -8,6 +8,8 @@
 #include <rdmapp/qp.h>
 
 namespace coverbs_rpc {
+
+using detail::get_logger;
 
 qp_connector::qp_connector(cppcoro::io_service &io_service, std::shared_ptr<pd> pd,
                            std::shared_ptr<srq> srq, ConnConfig config)

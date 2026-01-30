@@ -1,4 +1,4 @@
-#include "coverbs_rpc/logger.hpp"
+#include "coverbs_rpc/detail/logger.hpp"
 #include "coverbs_rpc/typed_client.hpp"
 #include "coverbs_rpc/utils/spin_wait.hpp"
 
@@ -12,6 +12,8 @@
 #include "typed_rpc_benchmark.hpp"
 
 using namespace coverbs_rpc;
+
+using coverbs_rpc::detail::get_logger;
 
 template <std::size_t I>
 void run_bench(typed_client &client, int threads_count, const std::string &label) {

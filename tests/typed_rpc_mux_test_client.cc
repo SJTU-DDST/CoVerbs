@@ -1,4 +1,4 @@
-#include "coverbs_rpc/logger.hpp"
+#include "coverbs_rpc/detail/logger.hpp"
 #include "coverbs_rpc/typed_client.hpp"
 
 #include <chrono>
@@ -13,6 +13,7 @@
 
 using namespace coverbs_rpc;
 using namespace coverbs_rpc::test;
+using coverbs_rpc::detail::get_logger;
 
 namespace {
 std::string server_ip = "192.168.98.70";

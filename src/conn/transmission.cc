@@ -1,5 +1,5 @@
 #include "coverbs_rpc/conn/transmission.hpp"
-#include "coverbs_rpc/logger.hpp"
+#include "coverbs_rpc/detail/logger.hpp"
 
 #include <array>
 #include <cassert>
@@ -8,6 +8,7 @@
 #include <span>
 
 namespace coverbs_rpc {
+using detail::get_logger;
 
 namespace {
 

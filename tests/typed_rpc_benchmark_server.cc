@@ -1,4 +1,4 @@
-#include "coverbs_rpc/logger.hpp"
+#include "coverbs_rpc/detail/logger.hpp"
 #include "coverbs_rpc/typed_server.hpp"
 
 #include <cppcoro/io_service.hpp>
@@ -8,6 +8,7 @@
 #include "typed_rpc_benchmark.hpp"
 
 using namespace coverbs_rpc;
+using coverbs_rpc::detail::get_logger;
 
 int main(int argc, char *argv[]) {
   if (argc != 2) {

@@ -1,7 +1,7 @@
 #include "coverbs_rpc/basic_server.hpp"
 #include "coverbs_rpc/common.hpp"
 #include "coverbs_rpc/conn/acceptor.hpp"
-#include "coverbs_rpc/logger.hpp"
+#include "coverbs_rpc/detail/logger.hpp"
 #include "coverbs_rpc/server_mux.hpp"
 
 #include <algorithm>
@@ -16,12 +16,14 @@
 
 using namespace coverbs_rpc;
 using namespace coverbs_rpc::test;
+using coverbs_rpc::detail::get_logger;
 
 auto handle_rpc(std::shared_ptr<rdmapp::qp> qp) -> cppcoro::task<void> {
   basic_mux mux;
   for (std::size_t i = 0; i < kNumHandlers; ++i) {
     mux.register_handler(
-        i, [i](std::span<std::byte> req, std::span<std::byte> resp) -> std::size_t {
+        i, std::format("test_fn_{}", i),
+        [i](std::span<std::byte> req, std::span<std::byte> resp) -> std::size_t {
           if (req.size() != kRequestSize) {
             get_logger()->error("Server: unexpected request size: {} for fn_id {}", req.size(), i);
             return 0;
