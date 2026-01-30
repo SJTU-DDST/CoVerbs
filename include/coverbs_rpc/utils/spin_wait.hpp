@@ -1,6 +1,7 @@
 #pragma once
 
 #include <atomic>
+#include <cassert>
 #include <coroutine>
 #include <cppcoro/awaitable_traits.hpp>
 #include <exception>
@@ -9,168 +10,169 @@
 
 namespace coverbs_rpc::utils {
 
+namespace detail {
+
 inline void cpu_relax() noexcept { __builtin_ia32_pause(); }
+
+struct SpinEvent {
+  std::atomic<bool> ready_{false};
+  void notify() noexcept { ready_.store(true, std::memory_order_release); }
+  void wait() noexcept {
+    if (ready_.load(std::memory_order_acquire))
+      return;
+    while (!ready_.load(std::memory_order_acquire)) {
+      cpu_relax();
+    }
+  }
+  bool is_ready() const noexcept { return ready_.load(std::memory_order_acquire); }
+};
 
 template <typename T>
 struct spin_wait_task;
 
-// Base promise to handle synchronization
-struct spin_wait_promise_base {
-  std::atomic<bool> is_ready{false};
-  std::exception_ptr exception{nullptr};
+struct final_awaiter {
+  constexpr bool await_ready() const noexcept { return false; }
+  template <typename Promise>
+  void await_suspend(std::coroutine_handle<Promise> h) noexcept {
+    h.promise().event_.notify();
+  }
+  constexpr void await_resume() const noexcept {}
+};
 
-  void unhandled_exception() { exception = std::current_exception(); }
+struct spin_promise_base {
+  SpinEvent event_;
+  std::exception_ptr exception_{nullptr};
+
+  void unhandled_exception() { exception_ = std::current_exception(); }
+
+  auto initial_suspend() noexcept { return std::suspend_always{}; }
+
+  auto final_suspend() noexcept { return final_awaiter{}; }
 };
 
 template <typename T>
-struct spin_wait_promise : spin_wait_promise_base {
+struct spin_wait_promise : spin_promise_base {
   union {
-    T value;
+    T value_;
   };
-  bool has_value = false;
+  bool has_value_ = false;
 
   spin_wait_promise() noexcept {}
   ~spin_wait_promise() {
-    if (has_value)
-      value.~T();
+    if (has_value_)
+      value_.~T();
   }
 
   spin_wait_task<T> get_return_object();
 
-  auto initial_suspend() noexcept { return std::suspend_always{}; }
-
-  auto final_suspend() noexcept {
-    is_ready.store(true, std::memory_order_release);
-    return std::suspend_always{};
-  }
-
   template <typename U>
   void return_value(U &&v) {
-    new (&value) T(std::forward<U>(v));
-    has_value = true;
+    new (&value_) T(std::forward<U>(v));
+    has_value_ = true;
   }
 
   T get_result() {
-    if (exception)
-      std::rethrow_exception(exception);
-    return std::move(value);
+    if (exception_)
+      std::rethrow_exception(exception_);
+    return std::move(value_);
   }
 };
 
 template <typename T>
-struct spin_wait_promise<T &&> : spin_wait_promise_base {
+struct spin_wait_promise<T &&> : spin_promise_base {
   union {
-    T value;
+    T value_;
   };
-  bool has_value = false;
+  bool has_value_ = false;
 
   spin_wait_promise() noexcept {}
   ~spin_wait_promise() {
-    if (has_value)
-      value.~T();
+    if (has_value_)
+      value_.~T();
   }
 
   spin_wait_task<T &&> get_return_object();
 
-  auto initial_suspend() noexcept { return std::suspend_always{}; }
-  auto final_suspend() noexcept {
-    is_ready.store(true, std::memory_order_release);
-    return std::suspend_always{};
-  }
-
   void return_value(T &&v) {
-    new (&value) T(std::move(v));
-    has_value = true;
+    new (&value_) T(std::move(v));
+    has_value_ = true;
   }
 
   T &&get_result() {
-    if (exception)
-      std::rethrow_exception(exception);
-    return std::move(value);
+    if (exception_)
+      std::rethrow_exception(exception_);
+    return std::move(value_);
   }
 };
 
 template <typename T>
-struct spin_wait_promise<T &> : spin_wait_promise_base {
-  T *value_ptr = nullptr;
+struct spin_wait_promise<T &> : spin_promise_base {
+  T *value_ptr_ = nullptr;
 
   spin_wait_task<T &> get_return_object();
 
-  auto initial_suspend() noexcept { return std::suspend_always{}; }
-
-  auto final_suspend() noexcept {
-    is_ready.store(true, std::memory_order_release);
-    return std::suspend_always{};
-  }
-
-  void return_value(T &v) { value_ptr = std::addressof(v); }
+  void return_value(T &v) { value_ptr_ = std::addressof(v); }
 
   T &get_result() {
-    if (exception)
-      std::rethrow_exception(exception);
-    return *value_ptr;
+    if (exception_)
+      std::rethrow_exception(exception_);
+    return *value_ptr_;
   }
 };
 
 template <>
-struct spin_wait_promise<void> : spin_wait_promise_base {
+struct spin_wait_promise<void> : spin_promise_base {
   spin_wait_task<void> get_return_object();
-
-  auto initial_suspend() noexcept { return std::suspend_always{}; }
-
-  auto final_suspend() noexcept {
-    is_ready.store(true, std::memory_order_release);
-    return std::suspend_always{};
-  }
-
   void return_void() {}
-
   void get_result() {
-    if (exception)
-      std::rethrow_exception(exception);
+    if (exception_)
+      std::rethrow_exception(exception_);
   }
 };
 
-// The Coroutine Handle Wrapper
+// ==========================================
+// 3. Task Wrapper (RAII)
+// ==========================================
 template <typename T>
 struct spin_wait_task {
   using promise_type = spin_wait_promise<T>;
   using handle_t = std::coroutine_handle<promise_type>;
 
-  handle_t handle;
+  handle_t h_;
 
   explicit spin_wait_task(handle_t h)
-      : handle(h) {}
+      : h_(h) {}
 
   ~spin_wait_task() {
-    if (handle)
-      handle.destroy();
+    if (h_) {
+      h_.promise().event_.wait();
+      h_.destroy();
+    }
   }
 
   spin_wait_task(const spin_wait_task &) = delete;
-  spin_wait_task &operator=(const spin_wait_task &) = delete;
   spin_wait_task(spin_wait_task &&other) noexcept
-      : handle(std::exchange(other.handle, nullptr)) {}
+      : h_(std::exchange(other.h_, nullptr)) {}
 
-  void start() { handle.resume(); }
+  void start() { h_.resume(); }
 
-  bool done() const noexcept { return handle.promise().is_ready.load(std::memory_order_acquire); }
-
-  decltype(auto) result() { return handle.promise().get_result(); }
+  decltype(auto) get() {
+    h_.promise().event_.wait();
+    return h_.promise().get_result();
+  }
 };
 
-// Link promise to task
 template <typename T>
 spin_wait_task<T> spin_wait_promise<T>::get_return_object() {
   return spin_wait_task<T>{std::coroutine_handle<spin_wait_promise<T>>::from_promise(*this)};
 }
 template <typename T>
-spin_wait_task<T &> spin_wait_promise<T &>::get_return_object() {
-  return spin_wait_task<T &>{std::coroutine_handle<spin_wait_promise<T &>>::from_promise(*this)};
-}
-template <typename T>
 spin_wait_task<T &&> spin_wait_promise<T &&>::get_return_object() {
   return spin_wait_task<T &&>{std::coroutine_handle<spin_wait_promise<T &&>>::from_promise(*this)};
+}
+template <typename T>
+spin_wait_task<T &> spin_wait_promise<T &>::get_return_object() {
+  return spin_wait_task<T &>{std::coroutine_handle<spin_wait_promise<T &>>::from_promise(*this)};
 }
 inline spin_wait_task<void> spin_wait_promise<void>::get_return_object() {
   return spin_wait_task<void>{std::coroutine_handle<spin_wait_promise<void>>::from_promise(*this)};
@@ -185,19 +187,32 @@ spin_wait_task<ResultType> make_spin_wait_task(Awaitable awaitable) {
   }
 }
 
+template <typename T>
+struct safe_spin_result {
+  using type = T;
+};
+template <typename T>
+struct safe_spin_result<T &&> {
+  using type = std::remove_reference_t<T>;
+};
+template <typename T>
+using safe_spin_result_t = typename safe_spin_result<T>::type;
+
+} // namespace detail
+
 template <typename Awaitable>
-auto spin_wait(Awaitable &&awaitable) {
+auto spin_wait(Awaitable &&awaitable)
+    -> detail::safe_spin_result_t<typename cppcoro::awaitable_traits<Awaitable>::await_result_t> {
   using result_type = typename cppcoro::awaitable_traits<Awaitable>::await_result_t;
 
-  auto task = make_spin_wait_task<Awaitable, result_type>(std::forward<Awaitable>(awaitable));
-
+  auto task =
+      detail::make_spin_wait_task<Awaitable, result_type>(std::forward<Awaitable>(awaitable));
   task.start();
-
-  while (!task.done()) {
-    cpu_relax();
-  }
-
-  return task.result();
+  // 这里的 decltype(auto) task.get() 会返回 result_type (即 T, T& 或 T&&)
+  // 但是函数的返回类型已经被我们强制指定为 safe_spin_result_t
+  // 如果 task.get() 返回 T&&，这里会隐式执行 T(T&&) 移动构造，
+  // 在 task 析构之前完成数据的转移。
+  return task.get();
 }
 
 } // namespace coverbs_rpc::utils

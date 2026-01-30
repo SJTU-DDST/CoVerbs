@@ -59,6 +59,10 @@ target("naive_test")
     add_files("tests/naive_test.cc")
     add_rules("test_config")
 
+target("spin_wait_test")
+    add_files("tests/spin_wait_test.cc")
+    add_rules("test_config")
+
 target("basic_conn_test")
     add_files("tests/basic_conn_test.cc")
     add_rules("test_config")
