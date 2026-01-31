@@ -4,8 +4,9 @@ package("rdmapp")
     set_description("The rdmapp package")
     add_deps("ibverbs", {system=true})
     add_deps("pthread", {system=true})
-    add_deps("asio 1.36.0")
     add_deps("spdlog 1.16.0", {private=true, configs={header_only=true}})
+
+    add_versions("0.1.0", "53e1fc1b617c23cb9ee9c33d8d4a411ed7750f5f")
 
     add_urls("https://github.com/SJTU-DDST/rdmapp.git")
     on_install(function (package)
@@ -16,6 +17,7 @@ package("rdmapp")
         configs.pic = true
         configs.nortti = false
         configs.examples = false
+        configs.asio_coro = false
         import("package.tools.xmake").install(package, configs)
     end)
 package("cppcoro")
@@ -31,7 +33,7 @@ option("tests", {default = false, description = "Build tests programs"})
 set_languages("c++23", { public = true })
 set_warnings("all", "extra", "pedantic", "error", {private=true})
 
-add_requires("rdmapp dev")
+add_requires("rdmapp 0.1.0")
 add_requires("cppcoro main")
 add_requires("concurrentqueue 1.0.4", {private=true})
 add_requires("spdlog 1.16.0", {private=true, configs={header_only=true}})
