@@ -6,13 +6,12 @@ set_languages("c++23", { public = true })
 set_warnings("all", "extra", "pedantic", "error", {private=true})
 
 add_repositories("ddst-xrepo https://github.com/SJTU-DDST/xmake-repo.git")
-add_requires("rdmapp 0.1.0", {
+add_requires("rdmapp 0.1.1", {
     public=true,
     configs={examples=false, asio_coro=false, nortti=false, enable_pic=true}
 })
 add_requires("cppcoro-20", {public=true})
 add_requires("concurrentqueue 1.0.4", {private=true})
-add_requires("spdlog 1.16.0", {private=true, configs={header_only=true}})
 add_requires("glaze 7.0.0", {public=true})
 
 
@@ -26,7 +25,6 @@ target("coverbs-rpc")
     add_packages("rdmapp",  {public=true})
     add_packages("cppcoro-20", {public=true})
     add_packages("glaze", {public=true})
-    add_packages("spdlog", {private=true})
     add_packages("concurrentqueue", {private=true})
     add_files("src/conn/*.cc")
     add_files("src/*.cc")
@@ -37,7 +35,6 @@ if has_config("tests") then
             target:add("includedirs", "tests/include")
             target:set("kind", "binary")
             target:add("deps", "coverbs-rpc")
-            target:add("packages", "spdlog")
         end)
 
     target("naive_test")

@@ -12,7 +12,6 @@
 #include <cstdint>
 #include <memory>
 #include <rdmapp/completion_token.h>
-#include <spdlog/fmt/ranges.h>
 #include <string>
 #include <thread>
 
@@ -30,8 +29,8 @@ cppcoro::task<void> handle_qp(std::shared_ptr<rdmapp::qp> qp) {
   coverbs_rpc::get_logger()->info("sent 4K");
   auto [nbytes, _] = co_await qp->recv(local_mr, rdmapp::use_native_awaitable);
   assert(nbytes == kMsgSize);
-  coverbs_rpc::get_logger()->info("received 4K: nbytes={} head={::X}", nbytes,
-                                  std::span(buffer, 10));
+  coverbs_rpc::get_logger()->info("received 4K: nbytes={} head={:x}", nbytes,
+                                  static_cast<int>(buffer[0]));
   co_return;
 }
 
@@ -53,7 +52,8 @@ cppcoro::task<void> client(coverbs_rpc::qp_connector &connector, std::string hos
   auto local_mr = qp->pd_ptr()->reg_mr(buffer, kMsgSize);
   auto [nbytes, _] = co_await qp->recv(local_mr, rdmapp::use_native_awaitable);
   assert(nbytes == kMsgSize);
-  coverbs_rpc::get_logger()->info("recv 4K: nbytes={} head={::X}", nbytes, std::span(buffer, 10));
+  coverbs_rpc::get_logger()->info("recv 4K: nbytes={} head={:02X}", nbytes,
+                                  static_cast<uint8_t>(buffer[0]));
   co_await qp->send(local_mr, rdmapp::use_native_awaitable);
   coverbs_rpc::get_logger()->info("sent 4K");
   co_return;

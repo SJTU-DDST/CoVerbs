@@ -19,7 +19,7 @@
 - **Software Dependencies**:
     - `libibverbs`
     - `xmake` (Build system)
-    - Dependencies managed by xmake: [rdmapp](https://github.com/SJTU-DDST/rdmapp), `cppcoro`, `glaze`, `spdlog`, `concurrentqueue`.
+    - Dependencies managed by xmake: [rdmapp](https://github.com/SJTU-DDST/rdmapp), `cppcoro`, `glaze`, `concurrentqueue`.
 
 ## Building
 
